@@ -102,22 +102,22 @@ The APK is written to `app/build/outputs/apk/debug/`. See [CHANGELOG.md](CHANGEL
 | Language | Progress |
 | --- | --- |
 | English | ████████████ 100% (source) |
-| Беларуская | ████████████ 96% |
-| Български | ████████████ 96% |
-| Bosanski | ████████████ 96% |
-| Čeština | ████████████ 96% |
-| Deutsch | ████████████ 96% |
-| Español | ████████████ 96% |
-| Français | ████████████ 96% |
-| Hrvatski | ████████████ 96% |
-| Македонски | ████████████ 96% |
-| Polski | ████████████ 96% |
-| Português (Brasil) | ████████████ 96% |
-| Русский | ████████████ 96% |
-| Slovenčina | ████████████ 96% |
-| Slovenščina | ████████████ 96% |
-| Српски | ████████████ 96% |
-| Українська | ████████████ 96% |
+| Беларуская | ███████████░ 88% |
+| Български | ███████████░ 88% |
+| Bosanski | ███████████░ 88% |
+| Čeština | ███████████░ 88% |
+| Deutsch | ███████████░ 88% |
+| Español | ███████████░ 88% |
+| Français | ███████████░ 88% |
+| Hrvatski | ███████████░ 88% |
+| Македонски | ███████████░ 88% |
+| Polski | ███████████░ 88% |
+| Português (Brasil) | ███████████░ 88% |
+| Русский | ███████████░ 88% |
+| Slovenčina | ███████████░ 88% |
+| Slovenščina | ███████████░ 88% |
+| Српски | ███████████░ 88% |
+| Українська | ███████████░ 88% |
 <!-- translations:end -->
 
 Translations are welcome! Add or improve one in `app/src/main/res/values-<locale>/strings.xml` and open a pull request.
