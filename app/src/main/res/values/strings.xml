@@ -110,6 +110,19 @@
     <string name="editor_error_file_too_large">This file is too large to edit.</string>
     <string name="editor_error_read_failed">Unable to read file.</string>
 
+    <!-- Editor dictation -->
+    <string name="dictation_start">Start dictation</string>
+    <string name="dictation_stop">Stop dictation</string>
+    <string name="dictation_language">Dictation language</string>
+    <string name="dictation_listening">Listening…</string>
+    <string name="dictation_error_permission">Microphone permission is needed for dictation.</string>
+    <string name="dictation_error_unavailable">No speech recognition service found. Install or enable Google\'s speech services.</string>
+    <string name="dictation_error_network">Dictation needs an internet connection, or the offline language pack.</string>
+    <string name="dictation_error_microphone">The microphone is busy or unavailable.</string>
+    <string name="dictation_error_language">This language isn\'t available for dictation. Download it in Google\'s speech settings.</string>
+    <string name="dictation_error_silence">Dictation stopped because nothing was heard.</string>
+    <string name="dictation_error_other">Dictation stopped unexpectedly.</string>
+
     <!-- Editor formatting toolbar -->
     <string name="format_bold">Bold</string>
     <string name="format_italic">Italic</string>

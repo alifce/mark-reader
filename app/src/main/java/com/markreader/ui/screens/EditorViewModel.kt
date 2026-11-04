@@ -232,6 +232,20 @@ class EditorViewModel(
         )
     }
 
+    /** Puts a dictated phrase at the cursor (replacing any selection) and leaves the cursor after it. */
+    fun insertDictated(spoken: String) {
+        val phrase = spoken.trim()
+        if (phrase.isEmpty()) return
+        val current = _uiState.value.textFieldValue
+        val before = current.text.substring(0, current.selection.min)
+        val after = current.text.substring(current.selection.max)
+        val insertion = joinDictated(before, phrase, after)
+        val caret = before.length + insertion.length - (if (after.isNotEmpty() && insertion.endsWith(" ")) 1 else 0)
+        onTextChanged(
+            TextFieldValue(text = before + insertion + after, selection = TextRange(caret))
+        )
+    }
+
     fun save() {
         val uri = Uri.parse(currentUri ?: return)
         val content = _uiState.value.textFieldValue.text

@@ -1,6 +1,8 @@
 package com.markreader.ui.screens
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +42,8 @@ import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.HorizontalRule
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
@@ -63,10 +67,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -81,6 +87,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.markreader.R
@@ -93,6 +100,7 @@ import com.markreader.ui.theme.CodeFontFamily
 import com.markreader.ui.theme.ReadingFontFamily
 import com.markreader.ui.theme.SansReadingFontFamily
 import com.markreader.webview.rendererSettingsFor
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -163,6 +171,92 @@ fun EditorScreen(
 
     val keyboardVisible = WindowInsets.isImeVisible
 
+    // Voice dictation: a mic button in the top bar types what you say at the cursor.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var dictationLanguage by rememberSaveable { mutableStateOf(DictationLanguage.Bangla) }
+    var isDictating by remember { mutableStateOf(false) }
+    var partialSpeech by remember { mutableStateOf("") }
+    val currentViewModel by rememberUpdatedState(viewModel)
+    val dictationMessages = mapOf(
+        DictationError.NoPermission to stringResource(R.string.dictation_error_permission),
+        DictationError.Unavailable to stringResource(R.string.dictation_error_unavailable),
+        DictationError.Network to stringResource(R.string.dictation_error_network),
+        DictationError.Microphone to stringResource(R.string.dictation_error_microphone),
+        DictationError.Language to stringResource(R.string.dictation_error_language),
+        DictationError.Silence to stringResource(R.string.dictation_error_silence),
+        DictationError.Other to stringResource(R.string.dictation_error_other)
+    )
+    val currentMessages by rememberUpdatedState(dictationMessages)
+    val dictation = remember {
+        DictationController(
+            context,
+            object : DictationController.Listener {
+                override fun onListening() {
+                    isDictating = true
+                }
+
+                override fun onPartial(text: String) {
+                    partialSpeech = text
+                }
+
+                override fun onFinal(text: String) {
+                    currentViewModel.insertDictated(text)
+                }
+
+                override fun onStopped() {
+                    isDictating = false
+                    partialSpeech = ""
+                }
+
+                override fun onError(error: DictationError) {
+                    val message = currentMessages[error] ?: return
+                    scope.launch { snackbarHostState.showSnackbar(message) }
+                }
+            }
+        )
+    }
+    DisposableEffect(dictation) { onDispose { dictation.release() } }
+    // Leaving the Edit tab ends dictation: the words would have nowhere to go.
+    LaunchedEffect(uiState.activeTab) {
+        if (uiState.activeTab != EditorTab.Edit && isDictating) dictation.stop()
+    }
+
+    fun startDictation() {
+        if (dictation.isAvailable()) {
+            isDictating = true
+            dictation.start(dictationLanguage)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(currentMessages.getValue(DictationError.Unavailable))
+            }
+        }
+    }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                startDictation()
+            } else {
+                scope.launch {
+                    snackbarHostState.showSnackbar(currentMessages.getValue(DictationError.NoPermission))
+                }
+            }
+        }
+    )
+    val onMicClick: () -> Unit = {
+        if (isDictating) {
+            dictation.stop()
+        } else if (
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            startDictation()
+        } else {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -182,6 +276,31 @@ fun EditorScreen(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.action_back)
                         )
+                    }
+                },
+                actions = {
+                    if (!uiState.isLoading && uiState.errorMessage == null &&
+                        uiState.activeTab == EditorTab.Edit
+                    ) {
+                        TextButton(
+                            onClick = {
+                                dictationLanguage = dictationLanguage.next()
+                                dictation.setLanguage(dictationLanguage)
+                            }
+                        ) { Text(dictationLanguage.label) }
+                        IconButton(onClick = onMicClick) {
+                            Icon(
+                                imageVector = if (isDictating) Icons.Filled.MicOff else Icons.Filled.Mic,
+                                contentDescription = stringResource(
+                                    if (isDictating) R.string.dictation_stop else R.string.dictation_start
+                                ),
+                                tint = if (isDictating) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -306,6 +425,9 @@ fun EditorScreen(
                                 }
                             )
                         }
+                        if (isDictating) {
+                            DictationStrip(partial = partialSpeech)
+                        }
                     } else {
                         // Preview tab
                         val previewText = uiState.previewText
@@ -381,6 +503,30 @@ fun EditorScreen(
                 }
             }
         )
+    }
+}
+
+/** Shows that the microphone is open, and the words heard so far, above the keyboard. */
+@Composable
+private fun DictationStrip(partial: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = partial.ifEmpty { stringResource(R.string.dictation_listening) },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
